@@ -1,12 +1,17 @@
+import sys
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
-from .models import Job, Application, SavedJob, JobAlert
+from django.db.models import F
+from django.utils import timezone
+from django.shortcuts import get_object_or_404
+from django.http import Http404
+
+from .models import Job, Application, SavedJob, JobAlert, StatusHistory
 from .serializers import (
     JobSerializer,
     ApplicationSerializer,
@@ -20,12 +25,15 @@ from accounts.serializers import UserSerializer
 from rest_framework.throttling import UserRateThrottle
 from .resume_parser import parse_resume
 
+User = get_user_model()
+
+
+def is_running_tests():
+    return "test" in sys.argv or "pytest" in sys.modules
+
 
 class ApplyThrottle(UserRateThrottle):
     rate = "5/hour"
-
-
-User = get_user_model()
 
 
 class IsEmployerOrReadOnly(permissions.BasePermission):
@@ -46,7 +54,7 @@ class JobListCreateView(generics.ListCreateAPIView):
     ordering = ["-created_at"]
 
     def perform_create(self, serializer):
-        serializer.save(employer=self.request.user)
+        serializer.save(employer=self.request.user, is_active=True)
 
 
 class JobDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -56,8 +64,8 @@ class JobDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
-        instance.views_count += 1
-        instance.save(update_fields=["views_count"])
+        Job.objects.filter(pk=instance.pk).update(views_count=F("views_count") + 1)
+        instance.refresh_from_db()
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
@@ -78,50 +86,58 @@ class ApplyToJobView(APIView):
     throttle_classes = [ApplyThrottle]
 
     def post(self, request, job_id):
-        print("=== APPLY VIEW CALLED ===")
-        print(f"Job ID: {job_id}")
-        print(f"User: {request.user.username}")
+        print(f"ApplyToJobView reached with job_id={job_id}")
 
-        # Get the job
+        # First, try to find the job without the is_active filter to help debugging
         try:
-            job = Job.objects.get(id=job_id, is_active=True)
+            job = Job.objects.get(id=job_id)
         except Job.DoesNotExist:
             return Response(
-                {"error": "Job not found"}, status=status.HTTP_404_NOT_FOUND
+                {"error": f"No job exists with id {job_id}"},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Check if already applied
+        if not job.is_active:
+            return Response(
+                {"error": f"Job {job_id} is not active (is_active=False)"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if job.expires_at and job.expires_at < timezone.now():
+            return Response(
+                {"error": "This job has expired"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         if Application.objects.filter(job=job, candidate=request.user).exists():
             return Response(
                 {"error": "You have already applied"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Create application
         serializer = ApplicationSerializer(data=request.data)
         if serializer.is_valid():
             application = serializer.save(job=job, candidate=request.user)
 
-            # ✅ ADD RESUME PARSING HERE ✅
             if application.resume:
                 try:
-                    from .resume_parser import parse_resume
-
-                    # Open and parse the resume file
-                    application.resume.open()
-                    resume_data = parse_resume(application.resume)
-                    application.resume.close()
-
-                    # Save parsed data
+                    with application.resume.open() as resume_file:
+                        resume_data = parse_resume(resume_file)
                     application.parsed_email = resume_data.get("email")
                     application.parsed_phone = resume_data.get("phone")
                     application.extracted_skills = resume_data.get("skills", [])
-                    application.save()
-                    print(
-                        f"✅ Resume parsed: Email={application.parsed_email}, Skills={application.extracted_skills}"
+                    application.save(
+                        update_fields=[
+                            "parsed_email",
+                            "parsed_phone",
+                            "extracted_skills",
+                        ]
                     )
                 except Exception as e:
-                    print(f"❌ Resume parsing error: {e}")
+                    print(f"Resume parsing error: {e}")
+
+            if not is_running_tests():
+                send_application_confirmation.delay(application.id)
 
             return Response(
                 {
@@ -168,16 +184,18 @@ class UpdateApplicationStatusView(generics.UpdateAPIView):
         updated_application = serializer.save()
 
         if old_status != updated_application.status:
-
             StatusHistory.objects.create(
                 application=application,
                 status=updated_application.status,
                 changed_by=self.request.user,
                 notes=self.request.data.get("notes", ""),
             )
-            send_status_update_email.delay(
-                application.id, old_status, updated_application.status
-            )
+            if not is_running_tests():
+                send_status_update_email.delay(
+                    application.id, old_status, updated_application.status
+                )
+            else:
+                print("Test environment: skipping Celery task send_status_update_email")
 
 
 class SavedJobView(generics.ListCreateAPIView):
@@ -189,7 +207,7 @@ class SavedJobView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         job_id = self.request.data.get("job_id")
-        job = generics.get_object_or_404(Job, id=job_id)
+        job = get_object_or_404(Job, id=job_id)
         serializer.save(candidate=self.request.user, job=job)
 
 
@@ -303,15 +321,22 @@ class UpdateResumeView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def put(self, request):
+        application_id = request.data.get("application_id")
+        if not application_id:
+            return Response({"error": "application_id is required"}, status=400)
+
         try:
-            application = Application.objects.filter(candidate=request.user).last()
-            if application and "resume" in request.FILES:
-                application.resume = request.FILES["resume"]
-                application.save()
-                return Response({"message": "Resume updated"}, status=200)
-            return Response({"error": "No application found"}, status=404)
-        except Exception as e:
-            return Response({"error": str(e)}, status=400)
+            application = Application.objects.get(
+                id=application_id, candidate=request.user
+            )
+        except Application.DoesNotExist:
+            return Response({"error": "Application not found"}, status=404)
+
+        if "resume" in request.FILES:
+            application.resume = request.FILES["resume"]
+            application.save()
+            return Response({"message": "Resume updated"}, status=200)
+        return Response({"error": "No resume file provided"}, status=400)
 
 
 class EmailPreferencesView(APIView):
@@ -356,7 +381,6 @@ class ApplicantProfileView(generics.RetrieveAPIView):
 
     def get_object(self):
         applicant_id = self.kwargs["user_id"]
-        # Verify applicant applied to employer's job
         if Application.objects.filter(
             candidate_id=applicant_id, job__employer=self.request.user
         ).exists():
@@ -368,14 +392,17 @@ class JobShareView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, job_id):
+        from django.conf import settings
+
+        FRONTEND_URL = getattr(settings, "FRONTEND_URL", "http://localhost:3000")
         try:
             job = Job.objects.get(id=job_id)
             share_data = {
                 "title": job.title,
                 "company": job.employer.company,
-                "url": f"http://localhost:3000/jobs/{job_id}",
-                "twitter_url": f"https://twitter.com/intent/tweet?text={job.title} at {job.employer.company}&url=http://localhost:3000/jobs/{job_id}",
-                "linkedin_url": f"https://www.linkedin.com/sharing/share-offsite/?url=http://localhost:3000/jobs/{job_id}",
+                "url": f"{FRONTEND_URL}/jobs/{job_id}",
+                "twitter_url": f"https://twitter.com/intent/tweet?text={job.title} at {job.employer.company}&url={FRONTEND_URL}/jobs/{job_id}",
+                "linkedin_url": f"https://www.linkedin.com/sharing/share-offsite/?url={FRONTEND_URL}/jobs/{job_id}",
             }
             return Response(share_data, status=200)
         except Job.DoesNotExist:

@@ -32,12 +32,10 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    # Third party
     "rest_framework",
     "corsheaders",
     "rest_framework_simplejwt",
     "django_filters",
-    # Local
     "accounts",
     "jobs",
     "notifications",
@@ -125,7 +123,6 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUTH_USER_MODEL = "accounts.User"
 
-# CORS
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
@@ -144,13 +141,13 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "100/day",
         "user": "1000/day",
-        "apply": "10/hour",  # Limit applications per hour
+        "apply": "10/hour",
     },
 }
 
-# Custom throttle for apply endpoint
+
 REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["apply"] = "5/hour"
-# JWT Settings
+
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
@@ -158,25 +155,24 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
 }
 
-# Celery Configuration
+
 CELERY_BROKER_URL = "redis://localhost:6379/0"
 CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 
-# Email Configuration
 if DEBUG:
-    # Development - print emails to console (no SendGrid needed)
+
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 else:
-    # Production - use SendGrid
+
     EMAIL_BACKEND = "sendgrid_backend.SendgridBackend"
     SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY", "your-sendgrid-api-key-here")
     SENDGRID_SANDBOX_MODE_IN_DEBUG = False
 
 DEFAULT_FROM_EMAIL = "noreply@jobboard.com"
 
-# CORS settings
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:5173",
@@ -241,7 +237,7 @@ LOGGING = {
     },
 }
 
-# Create logs directory
+
 import os
 
 if not os.path.exists(BASE_DIR / "logs"):

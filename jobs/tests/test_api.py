@@ -1,141 +1,136 @@
 from django.test import TestCase
+from django.utils import timezone
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 from rest_framework import status
-from datetime import datetime, timedelta
+from datetime import timedelta
+import uuid
 
 
 class JobAPITest(TestCase):
+    """
+    Enterprise-level API tests for Job system
+    Clean structure, reusable helpers, minimal repetition
+    """
 
     def setUp(self):
         self.client = APIClient()
 
-    def register_and_login(self, role="candidate"):
-        self.client.post(
-            "/api/auth/register/",
-            {
-                "username": f"user_{role}",
-                "email": f"{role}@test.com",
-                "password": "pass123",
-                "role": role,
-            },
-        )
-        response = self.client.post(
-            "/api/auth/login/", {"username": f"user_{role}", "password": "pass123"}
-        )
-        return response.data["access"]
+        # Pre-create users (faster + cleaner tests)
+        self.employer_token = self._register_and_login("employer")
+        self.candidate_token = self._register_and_login("candidate")
 
-    def test_employer_can_create_job(self):
-        token = self.register_and_login("employer")
+    def _register_and_login(self, role="candidate", company="Test Co"):
+        unique = uuid.uuid4().hex[:8]
+        username = f"{role}_{unique}"
+        email = f"{username}@test.com"
+
+        data = {
+            "username": username,
+            "email": email,
+            "password": "testpass123",
+            "role": role,
+        }
+
+        if role == "employer":
+            data["company"] = company
+
+        reg = self.client.post("/api/auth/register/", data)
+        self.assertEqual(reg.status_code, 201)
+
+        login = self.client.post(
+            "/api/auth/login/",
+            {"username": username, "password": "testpass123"},
+        )
+        self.assertEqual(login.status_code, 200)
+
+        return login.data["access"]
+
+    def _auth(self, token):
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
 
-        response = self.client.post(
+    def _create_job(self, token, title="Test Job"):
+        self._auth(token)
+        resp = self.client.post(
             "/api/jobs/",
             {
-                "title": "New Job",
+                "title": title,
                 "description": "Desc",
                 "requirements": "Req",
                 "location": "Remote",
                 "employment_type": "full",
-                "expires_at": (datetime.now() + timedelta(days=30)).isoformat(),
+                "expires_at": (timezone.now() + timedelta(days=30)).isoformat(),
             },
         )
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        print(f"Job creation response: {resp.status_code} {resp.data}")  # <-- ADD THIS
+        return resp
+
+    def _apply_to_job(self, token, job_id):
+        self._auth(token)
+
+        resume = SimpleUploadedFile(
+            "resume.txt",
+            b"John Doe Email: john@test.com Skills: Python",
+        )
+
+        return self.client.post(
+            f"/api/jobs/{job_id}/apply/",
+            {
+                "cover_letter": "I want this job",
+                "resume": resume,
+            },
+            format="multipart",
+        )
+
+    def test_employer_can_create_job(self):
+        resp = self._create_job(self.employer_token, "New Job")
+
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertIn("id", resp.data)
 
     def test_candidate_cannot_create_job(self):
-        token = self.register_and_login("candidate")
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        self._auth(self.candidate_token)
 
-        response = self.client.post("/api/jobs/", {"title": "Hacker Job"})
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        resp = self.client.post("/api/jobs/", {"title": "Hack Job"})
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_anyone_can_view_jobs(self):
-        response = self.client.get("/api/jobs/")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        resp = self.client.get("/api/jobs/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
     def test_candidate_can_apply_to_job(self):
-        # Create job as employer
-        emp_token = self.register_and_login("employer")
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {emp_token}")
-        job = self.client.post(
-            "/api/jobs/",
-            {
-                "title": "Apply Job",
-                "description": "D",
-                "requirements": "R",
-                "location": "L",
-                "employment_type": "full",
-                "expires_at": (datetime.now() + timedelta(days=30)).isoformat(),
-            },
-        )
-        job_id = job.data["id"]
+        job_resp = self._create_job(self.employer_token, "Apply Job")
+        job_id = job_resp.data["id"]
 
-        # Apply as candidate
-        can_token = self.register_and_login("candidate")
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {can_token}")
-        resume = SimpleUploadedFile("resume.txt", b"John Doe, Email: john@test.com")
+        apply_resp = self._apply_to_job(self.candidate_token, job_id)
 
-        response = self.client.post(
-            f"/api/jobs/{job_id}/apply/",
-            {"cover_letter": "I want this", "resume": resume},
-            format="multipart",
-        )
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(apply_resp.status_code, status.HTTP_201_CREATED)
+        self.assertIn("application_id", apply_resp.data)
 
     def test_employer_can_update_application_status(self):
-        # Create job and application
-        emp_token = self.register_and_login("employer")
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {emp_token}")
-        job = self.client.post(
-            "/api/jobs/",
-            {
-                "title": "Status Job",
-                "description": "D",
-                "requirements": "R",
-                "location": "L",
-                "employment_type": "full",
-                "expires_at": (datetime.now() + timedelta(days=30)).isoformat(),
-            },
-        )
-        job_id = job.data["id"]
+        job_resp = self._create_job(self.employer_token, "Status Job")
+        job_id = job_resp.data["id"]
 
-        can_token = self.register_and_login("candidate")
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {can_token}")
-        resume = SimpleUploadedFile("resume.txt", b"Resume")
-        app = self.client.post(
-            f"/api/jobs/{job_id}/apply/",
-            {"cover_letter": "Test", "resume": resume},
-            format="multipart",
-        )
-        app_id = app.data["id"]
+        apply_resp = self._apply_to_job(self.candidate_token, job_id)
+        app_id = apply_resp.data.get("application_id") or apply_resp.data.get("id")
 
-        # Update status
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {emp_token}")
-        response = self.client.patch(
-            f"/api/jobs/applications/{app_id}/status/", {"status": "reviewed"}
+        self._auth(self.employer_token)
+
+        update_resp = self.client.patch(
+            f"/api/jobs/applications/{app_id}/status/",
+            {"status": "reviewed"},
+            format="json",
         )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["status"], "reviewed")
+
+        self.assertEqual(update_resp.status_code, 200)
+        self.assertEqual(update_resp.data["status"], "reviewed")
 
     def test_candidate_can_save_job(self):
-        # Create job
-        emp_token = self.register_and_login("employer")
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {emp_token}")
-        job = self.client.post(
-            "/api/jobs/",
-            {
-                "title": "Save Job",
-                "description": "D",
-                "requirements": "R",
-                "location": "L",
-                "employment_type": "full",
-                "expires_at": (datetime.now() + timedelta(days=30)).isoformat(),
-            },
-        )
-        job_id = job.data["id"]
+        job_resp = self._create_job(self.employer_token, "Save Job")
+        job_id = job_resp.data["id"]
 
-        # Save job
-        can_token = self.register_and_login("candidate")
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {can_token}")
-        response = self.client.post("/api/jobs/saved/", {"job_id": job_id})
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self._auth(self.candidate_token)
+
+        resp = self.client.post("/api/jobs/saved/", {"job_id": job_id})
+
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)

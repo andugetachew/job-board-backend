@@ -1,11 +1,5 @@
-import os
-from django.core.exceptions import ValidationError
 from rest_framework import serializers
-from .models import Job, Application, SavedJob
-from .models import JobAlert
-
-
-from django.core.files.uploadedfile import UploadedFile
+from .models import Job, Application, SavedJob, JobAlert
 
 
 class JobSerializer(serializers.ModelSerializer):
@@ -28,10 +22,24 @@ class ApplicationSerializer(serializers.ModelSerializer):
     candidate_name = serializers.CharField(source="candidate.username", read_only=True)
     candidate_email = serializers.EmailField(source="candidate.email", read_only=True)
 
+    # CRITICAL: Override foreign keys to be read-only AND not required
+    job = serializers.PrimaryKeyRelatedField(read_only=True)
+    candidate = serializers.PrimaryKeyRelatedField(read_only=True)
+
     class Meta:
         model = Application
         fields = "__all__"
         read_only_fields = ("candidate", "job", "applied_at", "updated_at")
+
+    def validate_resume(self, value):
+        if value.size > 5 * 1024 * 1024:
+            raise serializers.ValidationError("Resume file too large. Max 5MB.")
+        ext = value.name.split(".")[-1].lower()
+        if ext not in ["pdf", "doc", "docx", "txt"]:
+            raise serializers.ValidationError(
+                "Invalid file type. Allowed: PDF, DOC, DOCX, TXT"
+            )
+        return value
 
 
 class SavedJobSerializer(serializers.ModelSerializer):
@@ -47,32 +55,3 @@ class JobAlertSerializer(serializers.ModelSerializer):
         model = JobAlert
         fields = "__all__"
         read_only_fields = ("candidate", "created_at", "last_sent_at")
-
-
-class ApplicationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Application
-        fields = "__all__"
-        read_only_fields = ("candidate", "applied_at", "updated_at")
-
-    def validate_resume(self, value):
-        # Size validation (5MB max)
-        if value.size > 5 * 1024 * 1024:
-            raise serializers.ValidationError("Resume file too large. Max 5MB.")
-
-        # File type validation
-        allowed_types = [
-            "application/pdf",
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "text/plain",
-        ]
-
-        # Check file extension
-        ext = value.name.split(".")[-1].lower()
-        if ext not in ["pdf", "doc", "docx", "txt"]:
-            raise serializers.ValidationError(
-                "Invalid file type. Allowed: PDF, DOC, DOCX, TXT"
-            )
-
-        return value

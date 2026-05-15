@@ -1,5 +1,7 @@
+# jobs/models.py
 from django.db import models
 from django.conf import settings
+from accounts.models import User
 
 
 class Job(models.Model):
@@ -83,9 +85,9 @@ class Application(models.Model):
     applied_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    # Resume parsing fields - added to existing Application model
+    # Fields for parsed resume data
     parsed_email = models.EmailField(blank=True, null=True)
-    parsed_phone = models.CharField(max_length=20, blank=True)
+    parsed_phone = models.CharField(max_length=20, blank=True, null=True)
     extracted_skills = models.JSONField(default=list)
 
     class Meta:
@@ -135,13 +137,9 @@ class JobAlert(models.Model):
 
 
 class StatusHistory(models.Model):
-    application = models.ForeignKey(
-        Application, on_delete=models.CASCADE, related_name="status_history"
-    )
+    application = models.ForeignKey(Application, on_delete=models.CASCADE)
     status = models.CharField(max_length=20)
-    changed_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True
-    )
+    changed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     changed_at = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True)
 
