@@ -2,6 +2,8 @@ from celery import shared_task
 from django.core.mail import send_mail
 from django.conf import settings
 from django.template.loader import render_to_string
+from django.utils import timezone
+from datetime import timedelta
 
 
 @shared_task
@@ -124,3 +126,24 @@ def send_daily_job_alerts():
             send_job_alert_email.delay(alert.candidate.email, jobs_list)
             alert.last_sent_at = timezone.now()
             alert.save()
+
+
+@shared_task
+def send_application_reminders():
+    """Send reminders for pending applications (5+ days old)"""
+    from .models import Application
+
+    pending_apps = Application.objects.filter(
+        status="pending", applied_at__lte=timezone.now() - timedelta(days=5)
+    )
+
+    for app in pending_apps:
+        send_mail(
+            "Application Still Pending",
+            f"Your application for {app.job.title} is still under review.",
+            settings.DEFAULT_FROM_EMAIL,
+            [app.candidate.email],
+            fail_silently=False,
+        )
+
+    return {"reminders_sent": pending_apps.count()}

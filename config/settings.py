@@ -1,29 +1,13 @@
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-        },
-    },
-    "root": {
-        "handlers": ["console"],
-        "level": "DEBUG",
-    },
-}
-
-
 from pathlib import Path
 from datetime import timedelta
 import os
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = "django-insecure-your-secret-key-here-change-in-production"
-
-DEBUG = True
-
-ALLOWED_HOSTS = ["*"]
+SECRET_KEY = os.environ.get("SECRET_KEY", "")
+DEBUG = os.environ.get("DEBUG", "False") == "True"
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost").split(",")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -36,10 +20,10 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework_simplejwt",
     "django_filters",
+    "drf_spectacular",
+    "channels",
     "accounts",
     "jobs",
-    "notifications",
-    "social_django",
     "reviews",
 ]
 
@@ -73,18 +57,45 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "config.wsgi.application"
+ASGI_APPLICATION = "config.asgi.application"
+
+
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"{REDIS_URL}/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    }
+}
+
+CACHE_TTL = 60 * 15
+
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [REDIS_URL],  
+        },
+    },
+}
 
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "jobboard_db",
-        "USER": "postgres",
-        "PASSWORD": "perfectionist",
-        "HOST": "localhost",
-        "PORT": "5432",
+        "NAME": os.environ.get("DB_NAME", "jobboard_db"),
+        "USER": os.environ.get("DB_USER", "postgres"),
+        "PASSWORD": os.environ.get("DB_PASSWORD", ""),
+        "HOST": os.environ.get("DB_HOST", "localhost"),
+        "PORT": os.environ.get("DB_PORT", "5432"),
     }
 }
 
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 AUTHENTICATION_BACKENDS = (
     "social_core.backends.google.GoogleOAuth2",
     "social_core.backends.github.GithubOAuth2",
@@ -100,7 +111,6 @@ LOGIN_URL = "/login"
 LOGIN_REDIRECT_URL = "/jobs"
 LOGOUT_REDIRECT_URL = "/login"
 
-
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
@@ -115,7 +125,10 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_DIRS = [BASE_DIR / "static"] if (BASE_DIR / "static").exists() else []
+
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
@@ -126,61 +139,12 @@ AUTH_USER_MODEL = "accounts.User"
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
-REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
-    ),
-    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
-    "DEFAULT_FILTER_BACKENDS": ("django_filters.rest_framework.DjangoFilterBackend",),
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
-    "PAGE_SIZE": 20,
-    "DEFAULT_THROTTLE_CLASSES": [
-        "rest_framework.throttling.AnonRateThrottle",
-        "rest_framework.throttling.UserRateThrottle",
-    ],
-    "DEFAULT_THROTTLE_RATES": {
-        "anon": "100/day",
-        "user": "1000/day",
-        "apply": "10/hour",
-    },
-}
-
-
-REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["apply"] = "5/hour"
-
-SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
-    "ROTATE_REFRESH_TOKENS": False,
-    "BLACKLIST_AFTER_ROTATION": True,
-}
-
-
-CELERY_BROKER_URL = "redis://localhost:6379/0"
-CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
-CELERY_ACCEPT_CONTENT = ["json"]
-CELERY_TASK_SERIALIZER = "json"
-
-if DEBUG:
-
-    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-else:
-
-    EMAIL_BACKEND = "sendgrid_backend.SendgridBackend"
-    SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY", "your-sendgrid-api-key-here")
-    SENDGRID_SANDBOX_MODE_IN_DEBUG = False
-
-DEFAULT_FROM_EMAIL = "noreply@jobboard.com"
-
-
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:5173",
     "https://yourdomain.com",
     "https://your-frontend.netlify.app",
 ]
-
-CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOW_METHODS = [
     "DELETE",
@@ -203,42 +167,87 @@ CORS_ALLOW_HEADERS = [
     "x-requested-with",
 ]
 
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {
-            "format": "{levelname} {asctime} {module} {message}",
-            "style": "{",
-        },
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "1000/day",
+        "user": "1000/day",
+        "apply": "5/hour",
     },
-    "handlers": {
-        "file": {
-            "level": "ERROR",
-            "class": "logging.FileHandler",
-            "filename": BASE_DIR / "logs/errors.log",
-            "formatter": "verbose",
-        },
-        "console": {
-            "level": "INFO",
-            "class": "logging.StreamHandler",
-        },
-    },
-    "root": {
-        "handlers": ["console", "file"],
-        "level": "INFO",
-    },
-    "loggers": {
-        "django": {
-            "handlers": ["file"],
-            "level": "ERROR",
-            "propagate": True,
-        },
-    },
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 20,
 }
 
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Job Board API",
+    "DESCRIPTION": "A production-ready job board API with JWT authentication, job posting, resume parsing, real-time notifications, and company reviews.",
+    "VERSION": "2.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
+    "SWAGGER_UI_SETTINGS": {
+        "deepLinking": True,
+        "persistAuthorization": True,
+        "displayOperationId": True,
+    },
+    "TAGS": [
+        {
+            "name": "Authentication",
+            "description": "Login, register, password reset, email verification",
+        },
+        {"name": "Jobs", "description": "Job CRUD, search, filters, job sharing"},
+        {
+            "name": "Applications",
+            "description": "Apply to jobs, view applications, update status",
+        },
+        {"name": "Saved Jobs", "description": "Save and manage favorite jobs"},
+        {"name": "Job Alerts", "description": "Create and manage job alerts"},
+        {"name": "Company Reviews", "description": "Reviews and ratings for companies"},
+        {
+            "name": "Analytics",
+            "description": "Dashboard analytics for employers and candidates",
+        },
+        {"name": "Admin", "description": "Admin only endpoints"},
+        {"name": "Profile", "description": "User profile management"},
+    ],
+}
 
-import os
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": True,
+}
 
-if not os.path.exists(BASE_DIR / "logs"):
-    os.makedirs(BASE_DIR / "logs")
+REDIS_URL = "redis://jobboard_redis:6379/0"
+
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
+
+CELERY_TASK_ALWAYS_EAGER = False
+CELERY_TASK_EAGER_PROPAGATES = False
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = os.getenv("EMAIL_HOST")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", 587))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS") == "True"
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
+# Celery settings for testing
+import sys
+
+if "test" in sys.argv or "pytest" in sys.modules:
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
+    CELERY_BROKER_URL = "memory://"
+    CELERY_RESULT_BACKEND = "cache+memory://"
+    EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"

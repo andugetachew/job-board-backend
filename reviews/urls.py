@@ -1,6 +1,6 @@
-# ===================== URLS =====================
-from .views import CompanyReviewListCreateView, CompanyRatingSummaryView
+
 from django.urls import path
+from .views import CompanyReviewListCreateView, CompanyRatingSummaryView
 
 urlpatterns = [
     path(

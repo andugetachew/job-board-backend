@@ -1,7 +1,7 @@
-# jobs/models.py
 from django.db import models
 from django.conf import settings
-from accounts.models import User
+from django.utils import timezone
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class Job(models.Model):
@@ -46,6 +46,11 @@ class Job(models.Model):
     skills_required = models.JSONField(default=list)
     expires_at = models.DateTimeField()
     is_active = models.BooleanField(default=True)
+
+    # ✅ Soft delete fields
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+
     views_count = models.IntegerField(default=0)
     applications_count = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -59,7 +64,24 @@ class Job(models.Model):
             models.Index(fields=["location", "is_remote"]),
             models.Index(fields=["title"]),
             models.Index(fields=["salary_min", "salary_max"]),
+            models.Index(
+                fields=["is_active", "is_deleted"]
+            ),  # ✅ For soft delete queries
         ]
+
+    def soft_delete(self):
+        """Soft delete the job (move to trash)"""
+        self.is_deleted = True
+        self.is_active = False
+        self.deleted_at = timezone.now()
+        self.save()
+
+    def restore(self):
+        """Restore a soft-deleted job"""
+        self.is_deleted = False
+        self.is_active = True
+        self.deleted_at = None
+        self.save()
 
     def __str__(self):
         return f"{self.title} at {self.employer.company or self.employer.username}"
@@ -85,14 +107,20 @@ class Application(models.Model):
     applied_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    # Fields for parsed resume data
+    # Resume parsing fields
     parsed_email = models.EmailField(blank=True, null=True)
     parsed_phone = models.CharField(max_length=20, blank=True, null=True)
     extracted_skills = models.JSONField(default=list)
 
     class Meta:
-        unique_together = ("job", "candidate")
+        unique_together = ("job", "candidate")  # ✅ Duplicate prevention
         ordering = ["-applied_at"]
+        indexes = [
+            models.Index(fields=["-applied_at"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["job", "status"]),
+            models.Index(fields=["candidate", "-applied_at"]),
+        ]
 
     def __str__(self):
         return f"{self.candidate.username} - {self.job.title}"
@@ -107,6 +135,7 @@ class SavedJob(models.Model):
 
     class Meta:
         unique_together = ("candidate", "job")
+        ordering = ["-saved_at"]
 
     def __str__(self):
         return f"{self.candidate.username} saved {self.job.title}"
@@ -137,11 +166,24 @@ class JobAlert(models.Model):
 
 
 class StatusHistory(models.Model):
-    application = models.ForeignKey(Application, on_delete=models.CASCADE)
+    """Audit log for application status changes"""
+
+    application = models.ForeignKey(
+        Application, on_delete=models.CASCADE, related_name="status_history"
+    )
     status = models.CharField(max_length=20)
-    changed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True
+    )
     changed_at = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-changed_at"]
+        indexes = [
+            models.Index(fields=["-changed_at"]),
+            models.Index(fields=["application", "-changed_at"]),
+        ]
 
     def __str__(self):
         return f"{self.application} -> {self.status} at {self.changed_at}"

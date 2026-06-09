@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils import timezone
 
 
 class User(AbstractUser):
@@ -21,6 +22,9 @@ class User(AbstractUser):
     is_email_verified = models.BooleanField(default=False)
     email_verification_token = models.CharField(max_length=100, blank=True, null=True)
     receive_email_notifications = models.BooleanField(default=True)
+    email_verification_sent_at = models.DateTimeField(null=True, blank=True)
+    reset_password_token = models.CharField(max_length=100, null=True, blank=True)
+    reset_password_sent_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.username} - {self.role}"

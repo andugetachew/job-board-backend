@@ -10,10 +10,14 @@ from accounts.models import User
 class CompanyReviewListCreateView(generics.ListCreateAPIView):
     serializer_class = CompanyReviewSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    pagination_class = None  # 🔥 CRITICAL FIX
 
     def get_queryset(self):
         company_id = self.kwargs["company_id"]
-        return CompanyReview.objects.filter(company_id=company_id, is_verified=True)
+        return CompanyReview.objects.filter(
+            company_id=company_id,
+            is_verified=True
+        ).order_by("-created_at")
 
     def perform_create(self, serializer):
         company_id = self.kwargs["company_id"]

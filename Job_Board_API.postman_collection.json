@@ -1,29 +1,25 @@
 {
     "info": {
         "name": "Job Board API",
-        "description": "Complete API collection for Job Board platform",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "variable": [
         {
             "key": "base_url",
-            "value": "http://localhost:8000/api",
-            "type": "string"
+            "value": "http://localhost:8001/api"
         },
         {
-            "key": "access_token",
-            "value": "",
-            "type": "string"
+            "key": "token",
+            "value": ""
         },
         {
-            "key": "refresh_token",
-            "value": "",
-            "type": "string"
+            "key": "admin_token",
+            "value": ""
         }
     ],
     "item": [
         {
-            "name": "Authentication",
+            "name": "1. Auth",
             "item": [
                 {
                     "name": "Register Candidate",
@@ -37,17 +33,10 @@
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"username\": \"testcandidate\",\n  \"email\": \"test@example.com\",\n  \"password\": \"testpass123\",\n  \"role\": \"candidate\"\n}"
+                            "raw": "{\"username\":\"candidate1\",\"email\":\"cand@test.com\",\"password\":\"pass123\",\"role\":\"candidate\"}"
                         },
                         "url": {
-                            "raw": "{{base_url}}/auth/register/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "register"
-                            ]
+                            "raw": "{{base_url}}/auth/register/"
                         }
                     }
                 },
@@ -63,17 +52,10 @@
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"username\": \"testemployer\",\n  \"email\": \"employer@example.com\",\n  \"password\": \"testpass123\",\n  \"role\": \"employer\",\n  \"company\": \"Tech Corp\"\n}"
+                            "raw": "{\"username\":\"employer1\",\"email\":\"emp@test.com\",\"password\":\"pass123\",\"role\":\"employer\",\"company\":\"Tech Corp\"}"
                         },
                         "url": {
-                            "raw": "{{base_url}}/auth/register/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "register"
-                            ]
+                            "raw": "{{base_url}}/auth/register/"
                         }
                     }
                 },
@@ -89,213 +71,46 @@
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"username\": \"testcandidate\",\n  \"password\": \"testpass123\"\n}"
+                            "raw": "{\"username\":\"candidate1\",\"password\":\"pass123\"}"
                         },
                         "url": {
-                            "raw": "{{base_url}}/auth/login/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "login"
-                            ]
+                            "raw": "{{base_url}}/auth/login/"
                         },
                         "script": {
                             "type": "text/javascript",
                             "exec": [
-                                "if(responseCode.code === 200) {",
-                                "    var jsonData = JSON.parse(responseBody);",
-                                "    postman.setEnvironmentVariable(\"access_token\", jsonData.access);",
-                                "    postman.setEnvironmentVariable(\"refresh_token\", jsonData.refresh);",
-                                "}"
+                                "let json = JSON.parse(responseBody);",
+                                "postman.setEnvironmentVariable(\"token\", json.access);"
                             ]
                         }
                     }
                 },
                 {
-                    "name": "Get Profile",
+                    "name": "My Profile",
                     "request": {
                         "method": "GET",
                         "header": [
                             {
                                 "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
+                                "value": "Bearer {{token}}"
                             }
                         ],
                         "url": {
-                            "raw": "{{base_url}}/auth/profile/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "profile"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Update Profile",
-                    "request": {
-                        "method": "PUT",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            }
-                        ],
-                        "body": {
-                            "mode": "formdata",
-                            "formdata": [
-                                {
-                                    "key": "phone",
-                                    "value": "+1234567890",
-                                    "type": "text"
-                                },
-                                {
-                                    "key": "bio",
-                                    "value": "Experienced software developer",
-                                    "type": "text"
-                                },
-                                {
-                                    "key": "location",
-                                    "value": "San Francisco",
-                                    "type": "text"
-                                }
-                            ]
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/auth/profile/update/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "profile",
-                                "update"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Change Password",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            },
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"old_password\": \"testpass123\",\n  \"new_password\": \"newpass123\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/auth/change-password/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "change-password"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Forgot Password",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"email\": \"test@example.com\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/auth/forgot-password/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "forgot-password"
-                            ]
+                            "raw": "{{base_url}}/auth/profile/"
                         }
                     }
                 }
             ]
         },
         {
-            "name": "Jobs",
+            "name": "2. Jobs",
             "item": [
                 {
-                    "name": "List All Jobs",
+                    "name": "List Jobs",
                     "request": {
                         "method": "GET",
                         "url": {
-                            "raw": "{{base_url}}/jobs/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "jobs"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Filter Jobs",
-                    "request": {
-                        "method": "GET",
-                        "url": {
-                            "raw": "{{base_url}}/jobs/?search=python&is_remote=true&salary_min_gte=80000",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "jobs"
-                            ],
-                            "query": [
-                                {
-                                    "key": "search",
-                                    "value": "python"
-                                },
-                                {
-                                    "key": "is_remote",
-                                    "value": "true"
-                                },
-                                {
-                                    "key": "salary_min_gte",
-                                    "value": "80000"
-                                }
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Job Details",
-                    "request": {
-                        "method": "GET",
-                        "url": {
-                            "raw": "{{base_url}}/jobs/1/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "jobs",
-                                "1"
-                            ]
+                            "raw": "{{base_url}}/jobs/"
                         }
                     }
                 },
@@ -306,7 +121,7 @@
                         "header": [
                             {
                                 "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
+                                "value": "Bearer {{token}}"
                             },
                             {
                                 "key": "Content-Type",
@@ -315,27 +130,30 @@
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"title\": \"Senior Python Developer\",\n  \"description\": \"We are looking for a passionate Python developer to join our team.\",\n  \"requirements\": \"5+ years Python, Django, PostgreSQL\",\n  \"location\": \"Remote\",\n  \"is_remote\": true,\n  \"employment_type\": \"full\",\n  \"salary_min\": 90000,\n  \"salary_max\": 140000,\n  \"expires_at\": \"2025-12-31T23:59:59Z\"\n}"
+                            "raw": "{\"title\":\"Python Developer\",\"description\":\"Build APIs\",\"requirements\":\"Python, Django\",\"location\":\"Remote\",\"employment_type\":\"full\",\"salary_min\":80000,\"salary_max\":120000,\"expires_at\":\"2025-12-31\"}"
                         },
                         "url": {
-                            "raw": "{{base_url}}/jobs/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "jobs"
-                            ]
+                            "raw": "{{base_url}}/jobs/"
                         }
                     }
                 },
                 {
-                    "name": "Update Job (Employer)",
+                    "name": "Job Details",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{base_url}}/jobs/1/"
+                        }
+                    }
+                },
+                {
+                    "name": "Update Job",
                     "request": {
                         "method": "PATCH",
                         "header": [
                             {
                                 "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
+                                "value": "Bearer {{token}}"
                             },
                             {
                                 "key": "Content-Type",
@@ -344,64 +162,26 @@
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"salary_max\": 150000\n}"
+                            "raw": "{\"salary_max\":150000}"
                         },
                         "url": {
-                            "raw": "{{base_url}}/jobs/1/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "jobs",
-                                "1"
-                            ]
+                            "raw": "{{base_url}}/jobs/1/"
                         }
                     }
                 },
                 {
-                    "name": "Delete Job (Employer)",
-                    "request": {
-                        "method": "DELETE",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/jobs/1/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "jobs",
-                                "1"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Company Jobs",
+                    "name": "Search Jobs",
                     "request": {
                         "method": "GET",
                         "url": {
-                            "raw": "{{base_url}}/jobs/company/1/jobs/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "jobs",
-                                "company",
-                                "1",
-                                "jobs"
-                            ]
+                            "raw": "{{base_url}}/jobs/?search=python&location=remote"
                         }
                     }
                 }
             ]
         },
         {
-            "name": "Applications",
+            "name": "3. Applications",
             "item": [
                 {
                     "name": "Apply to Job",
@@ -410,7 +190,7 @@
                         "header": [
                             {
                                 "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
+                                "value": "Bearer {{token}}"
                             }
                         ],
                         "body": {
@@ -418,50 +198,34 @@
                             "formdata": [
                                 {
                                     "key": "cover_letter",
-                                    "value": "I am very interested in this position. I have 5 years of experience with Python and Django.",
+                                    "value": "I am interested",
                                     "type": "text"
                                 },
                                 {
                                     "key": "resume",
                                     "value": "",
                                     "type": "file",
-                                    "src": "C:/Users/HP/resume.txt"
+                                    "src": "C:/resume.txt"
                                 }
                             ]
                         },
                         "url": {
-                            "raw": "{{base_url}}/jobs/1/apply/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "jobs",
-                                "1",
-                                "apply"
-                            ]
+                            "raw": "{{base_url}}/jobs/1/apply/"
                         }
                     }
                 },
                 {
-                    "name": "My Applications (Candidate)",
+                    "name": "My Applications",
                     "request": {
                         "method": "GET",
                         "header": [
                             {
                                 "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
+                                "value": "Bearer {{token}}"
                             }
                         ],
                         "url": {
-                            "raw": "{{base_url}}/jobs/applications/my/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "jobs",
-                                "applications",
-                                "my"
-                            ]
+                            "raw": "{{base_url}}/jobs/applications/my/"
                         }
                     }
                 },
@@ -472,30 +236,22 @@
                         "header": [
                             {
                                 "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
+                                "value": "Bearer {{token}}"
                             }
                         ],
                         "url": {
-                            "raw": "{{base_url}}/jobs/applications/employer/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "jobs",
-                                "applications",
-                                "employer"
-                            ]
+                            "raw": "{{base_url}}/jobs/applications/employer/"
                         }
                     }
                 },
                 {
-                    "name": "Update Application Status",
+                    "name": "Update Status",
                     "request": {
                         "method": "PATCH",
                         "header": [
                             {
                                 "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
+                                "value": "Bearer {{token}}"
                             },
                             {
                                 "key": "Content-Type",
@@ -504,83 +260,17 @@
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"status\": \"reviewed\"\n}"
+                            "raw": "{\"status\":\"reviewed\"}"
                         },
                         "url": {
-                            "raw": "{{base_url}}/jobs/applications/1/status/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "jobs",
-                                "applications",
-                                "1",
-                                "status"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Withdraw Application",
-                    "request": {
-                        "method": "DELETE",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/jobs/applications/1/withdraw/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "jobs",
-                                "applications",
-                                "1",
-                                "withdraw"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Update Resume",
-                    "request": {
-                        "method": "PUT",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            }
-                        ],
-                        "body": {
-                            "mode": "formdata",
-                            "formdata": [
-                                {
-                                    "key": "resume",
-                                    "value": "",
-                                    "type": "file",
-                                    "src": "C:/Users/HP/new_resume.txt"
-                                }
-                            ]
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/jobs/update-resume/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "jobs",
-                                "update-resume"
-                            ]
+                            "raw": "{{base_url}}/jobs/applications/1/status/"
                         }
                     }
                 }
             ]
         },
         {
-            "name": "Saved Jobs",
+            "name": "4. Saved Jobs",
             "item": [
                 {
                     "name": "Save Job",
@@ -589,7 +279,7 @@
                         "header": [
                             {
                                 "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
+                                "value": "Bearer {{token}}"
                             },
                             {
                                 "key": "Content-Type",
@@ -598,185 +288,33 @@
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"job_id\": 1\n}"
+                            "raw": "{\"job_id\":1}"
                         },
                         "url": {
-                            "raw": "{{base_url}}/jobs/saved/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "jobs",
-                                "saved"
-                            ]
+                            "raw": "{{base_url}}/jobs/saved/"
                         }
                     }
                 },
                 {
-                    "name": "List Saved Jobs",
+                    "name": "List Saved",
                     "request": {
                         "method": "GET",
                         "header": [
                             {
                                 "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
+                                "value": "Bearer {{token}}"
                             }
                         ],
                         "url": {
-                            "raw": "{{base_url}}/jobs/saved/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "jobs",
-                                "saved"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Remove Saved Job",
-                    "request": {
-                        "method": "DELETE",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/jobs/saved/1/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "jobs",
-                                "saved",
-                                "1"
-                            ]
+                            "raw": "{{base_url}}/jobs/saved/"
                         }
                     }
                 }
             ]
         },
         {
-            "name": "Job Alerts",
+            "name": "5. Company Reviews",
             "item": [
-                {
-                    "name": "Create Job Alert",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            },
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"search_keyword\": \"Python\",\n  \"location\": \"Remote\",\n  \"is_remote\": true,\n  \"employment_type\": \"full\",\n  \"salary_min\": 80000,\n  \"frequency\": \"daily\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/jobs/alerts/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "jobs",
-                                "alerts"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "List Job Alerts",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/jobs/alerts/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "jobs",
-                                "alerts"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Delete Job Alert",
-                    "request": {
-                        "method": "DELETE",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/jobs/alerts/1/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "jobs",
-                                "alerts",
-                                "1"
-                            ]
-                        }
-                    }
-                }
-            ]
-        },
-        {
-            "name": "Company Reviews",
-            "item": [
-                {
-                    "name": "Get Company Reviews",
-                    "request": {
-                        "method": "GET",
-                        "url": {
-                            "raw": "{{base_url}}/companies/1/reviews/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "companies",
-                                "1",
-                                "reviews"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Rating Summary",
-                    "request": {
-                        "method": "GET",
-                        "url": {
-                            "raw": "{{base_url}}/companies/1/reviews/summary/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "companies",
-                                "1",
-                                "reviews",
-                                "summary"
-                            ]
-                        }
-                    }
-                },
                 {
                     "name": "Post Review",
                     "request": {
@@ -784,7 +322,7 @@
                         "header": [
                             {
                                 "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
+                                "value": "Bearer {{token}}"
                             },
                             {
                                 "key": "Content-Type",
@@ -793,56 +331,50 @@
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"rating\": 5,\n  \"comment\": \"Great company to work with!\"\n}"
+                            "raw": "{\"rating\":5,\"comment\":\"Great company!\"}"
                         },
                         "url": {
-                            "raw": "{{base_url}}/companies/1/reviews/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "companies",
-                                "1",
-                                "reviews"
-                            ]
+                            "raw": "{{base_url}}/companies/1/reviews/"
+                        }
+                    }
+                },
+                {
+                    "name": "Get Reviews",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{base_url}}/companies/1/reviews/"
                         }
                     }
                 }
             ]
         },
         {
-            "name": "Settings & Preferences",
+            "name": "6. Notifications",
             "item": [
                 {
-                    "name": "Get Email Preferences",
+                    "name": "Email Preferences",
                     "request": {
                         "method": "GET",
                         "header": [
                             {
                                 "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
+                                "value": "Bearer {{token}}"
                             }
                         ],
                         "url": {
-                            "raw": "{{base_url}}/jobs/email-preferences/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "jobs",
-                                "email-preferences"
-                            ]
+                            "raw": "{{base_url}}/jobs/email-preferences/"
                         }
                     }
                 },
                 {
-                    "name": "Update Email Preferences",
+                    "name": "Update Email Prefs",
                     "request": {
                         "method": "POST",
                         "header": [
                             {
                                 "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
+                                "value": "Bearer {{token}}"
                             },
                             {
                                 "key": "Content-Type",
@@ -851,17 +383,62 @@
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"receive_email_notifications\": false\n}"
+                            "raw": "{\"receive_email_notifications\":false}"
                         },
                         "url": {
-                            "raw": "{{base_url}}/jobs/email-preferences/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "jobs",
-                                "email-preferences"
-                            ]
+                            "raw": "{{base_url}}/jobs/email-preferences/"
+                        }
+                    }
+                },
+                {
+                    "name": "Job Alerts",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"search_keyword\":\"Python\",\"location\":\"Remote\",\"frequency\":\"daily\"}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/jobs/alerts/"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "7. Analytics",
+            "item": [
+                {
+                    "name": "Employer Stats",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/jobs/my/stats/"
+                        }
+                    }
+                },
+                {
+                    "name": "Rating Summary",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{base_url}}/companies/1/reviews/summary/"
                         }
                     }
                 },
@@ -870,23 +447,70 @@
                     "request": {
                         "method": "GET",
                         "url": {
-                            "raw": "{{base_url}}/jobs/1/share/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "jobs",
-                                "1",
-                                "share"
-                            ]
+                            "raw": "{{base_url}}/jobs/1/share/"
                         }
                     }
                 }
             ]
         },
         {
-            "name": "Admin",
+            "name": "8. Health Check",
             "item": [
+                {
+                    "name": "API Health",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{base_url}}/jobs/"
+                        }
+                    }
+                },
+                {
+                    "name": "Redis Health",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/admin/stats/"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "9. Admin",
+            "item": [
+                {
+                    "name": "Admin Login",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"username\":\"admin\",\"password\":\"admin123\"}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/auth/login/"
+                        },
+                        "script": {
+                            "type": "text/javascript",
+                            "exec": [
+                                "let json = JSON.parse(responseBody);",
+                                "postman.setEnvironmentVariable(\"admin_token\", json.access);"
+                            ]
+                        }
+                    }
+                },
                 {
                     "name": "Dashboard Stats",
                     "request": {
@@ -894,18 +518,11 @@
                         "header": [
                             {
                                 "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
+                                "value": "Bearer {{admin_token}}"
                             }
                         ],
                         "url": {
-                            "raw": "{{base_url}}/admin/stats/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "admin",
-                                "stats"
-                            ]
+                            "raw": "{{base_url}}/admin/stats/"
                         }
                     }
                 },
@@ -916,18 +533,11 @@
                         "header": [
                             {
                                 "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
+                                "value": "Bearer {{admin_token}}"
                             }
                         ],
                         "url": {
-                            "raw": "{{base_url}}/admin/recent-jobs/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "admin",
-                                "recent-jobs"
-                            ]
+                            "raw": "{{base_url}}/admin/recent-jobs/"
                         }
                     }
                 },
@@ -938,18 +548,11 @@
                         "header": [
                             {
                                 "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
+                                "value": "Bearer {{admin_token}}"
                             }
                         ],
                         "url": {
-                            "raw": "{{base_url}}/admin/recent-users/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "admin",
-                                "recent-users"
-                            ]
+                            "raw": "{{base_url}}/admin/recent-users/"
                         }
                     }
                 },
@@ -960,68 +563,50 @@
                         "header": [
                             {
                                 "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
+                                "value": "Bearer {{admin_token}}"
                             }
                         ],
                         "url": {
-                            "raw": "{{base_url}}/admin/jobs/1/flag/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "admin",
-                                "jobs",
-                                "1",
-                                "flag"
-                            ]
+                            "raw": "{{base_url}}/admin/jobs/1/flag/"
                         }
                     }
-                },
+                }
+            ]
+        },
+        {
+            "name": "10. Rate Limit Testing",
+            "item": [
                 {
-                    "name": "Block User",
+                    "name": "Test Apply Limit (5/hour)",
                     "request": {
                         "method": "POST",
                         "header": [
                             {
                                 "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
+                                "value": "Bearer {{token}}"
                             }
                         ],
-                        "url": {
-                            "raw": "{{base_url}}/admin/users/2/block/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "admin",
-                                "users",
-                                "2",
-                                "block"
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "cover_letter",
+                                    "value": "Test",
+                                    "type": "text"
+                                }
                             ]
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/jobs/1/apply/"
                         }
                     }
                 },
                 {
-                    "name": "Unblock User",
+                    "name": "Test Anonymous Limit (100/day)",
                     "request": {
-                        "method": "DELETE",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            }
-                        ],
+                        "method": "GET",
                         "url": {
-                            "raw": "{{base_url}}/admin/users/2/block/",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "admin",
-                                "users",
-                                "2",
-                                "block"
-                            ]
+                            "raw": "{{base_url}}/jobs/"
                         }
                     }
                 }

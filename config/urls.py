@@ -8,10 +8,15 @@ from jobs.views import (
     AdminRecentJobsView,
     AdminRecentUsersView,
     AdminDeleteJobView,
-    AdminToggleUserView,
     MyApplicationsView,
 )
-
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularSwaggerView,
+    SpectacularRedocView,
+)
+from backup.views import BackupDatabaseView, BackupMediaView
+from jobs.analytics import EmployerAnalyticsView, CandidateAnalyticsView
 urlpatterns = [
     # Admin
     path("admin/", admin.site.urls),
@@ -37,13 +42,20 @@ urlpatterns = [
         AdminDeleteJobView.as_view(),
         name="admin-delete-job",
     ),
-    path(
-        "api/admin/users/<int:user_id>/",
-        AdminToggleUserView.as_view(),
-        name="admin-toggle-user",
-    ),
     path("auth/", include("social_django.urls", namespace="social")),
-    path("api/", include("reviews.urls")),
+    path("", include("reviews.urls")),
+    path(
+        "api/admin/backup/database/",
+        BackupDatabaseView.as_view(),
+        name="backup-database",
+    ),
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+    path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
+    path("api/admin/backup/media/", BackupMediaView.as_view(), name="backup-media"),
+    path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token-refresh"),
+    path("api/analytics/employer/", EmployerAnalyticsView.as_view(), name="employer-analytics"),
+    path("api/analytics/candidate/", CandidateAnalyticsView.as_view(), name="candidate-analytics"),
 ]
 
 # Serve media files in development

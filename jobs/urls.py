@@ -1,4 +1,5 @@
 from django.urls import path
+from .analytics import EmployerAnalyticsView, CandidateAnalyticsView
 from .views import (
     JobListCreateView,
     JobDetailView,
@@ -17,6 +18,9 @@ from .views import (
     CompanyJobsView,
     ApplicantProfileView,
     JobShareView,
+    RestoreJobView,
+    ApplicationAuditLogView,
+    EmployerJobStatsView,
 )
 
 urlpatterns = [
@@ -36,6 +40,7 @@ urlpatterns = [
         UpdateApplicationStatusView.as_view(),
         name="update-status",
     ),
+    # Withdraw: single canonical URL (removed duplicate at bottom)
     path(
         "applications/<int:application_id>/withdraw/",
         WithdrawApplicationView.as_view(),
@@ -47,7 +52,7 @@ urlpatterns = [
     # Job Alert URLs
     path("alerts/", JobAlertListCreateView.as_view(), name="job-alerts"),
     path("alerts/<int:pk>/", JobAlertDeleteView.as_view(), name="job-alert-delete"),
-    # Resume URLs
+    # Resume / preferences
     path("update-resume/", UpdateResumeView.as_view(), name="update-resume"),
     path(
         "email-preferences/", EmailPreferencesView.as_view(), name="email-preferences"
@@ -65,10 +70,23 @@ urlpatterns = [
     ),
     # Share URL
     path("<int:job_id>/share/", JobShareView.as_view(), name="job-share"),
-    # Admin URL
+    # Admin URLs
+    path(
+        "admin/jobs/<int:job_id>/restore/",
+        RestoreJobView.as_view(),
+        name="restore-job",
+    ),
+    path(
+        "applications/<int:application_id>/audit/",
+        ApplicationAuditLogView.as_view(),
+        name="audit-log",
+    ),
     path(
         "admin/jobs/<int:job_id>/flag/",
         AdminFlagJobView.as_view(),
         name="admin-flag-job",
     ),
+    path("analytics/employer/", EmployerAnalyticsView.as_view(), name="employer-analytics"),
+    path("analytics/candidate/", CandidateAnalyticsView.as_view(), name="candidate-analytics"),
+    path("employer/stats/", EmployerJobStatsView.as_view(), name="employer-stats"),
 ]

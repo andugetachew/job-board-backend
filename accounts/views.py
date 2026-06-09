@@ -1,19 +1,27 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import RegisterSerializer, LoginSerializer, UserSerializer
-from .models import User
 from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
-from rest_framework.views import APIView
+from django.utils import timezone
+from datetime import timedelta
 
-from rest_framework.parsers import MultiPartParser, FormParser
-
-
+from .models import User
 from .serializers import (
+    RegisterSerializer,
+    LoginSerializer,
+    UserSerializer,
     ChangePasswordSerializer,
     ForgotPasswordSerializer,
     ResetPasswordSerializer,
+)
+from .utils import generate_verification_token
+from .tasks import (
+    send_verification_email,
+    send_password_reset_email,
+    send_welcome_email,
 )
 
 
@@ -22,34 +30,19 @@ class RegisterView(generics.CreateAPIView):
     permission_classes = (permissions.AllowAny,)
     serializer_class = RegisterSerializer
 
-    # def post(self, request, *args, **kwargs):
-    #     serializer = self.get_serializer(data=request.data)
-    #     serializer.is_valid(raise_exception=True)
-    #     user = serializer.save()
-    #     refresh = RefreshToken.for_user(user)
-    #     return Response(
-    #         {
-    #             "user": UserSerializer(user).data,
-    #             "refresh": str(refresh),
-    #             "access": str(refresh.access_token),
-    #         },
-    #         status=status.HTTP_201_CREATED,
-    #     )
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+
+        # Generate verification token
+        user.email_verification_token = generate_verification_token()
+        user.email_verification_sent_at = timezone.now()
         user.is_email_verified = False
-        user.email_verification_token = get_random_string(64)
         user.save()
 
-        # Send verification email
-        send_mail(
-            "Verify Your Email",
-            f"Click to verify: http://localhost:3000/verify-email?token={user.email_verification_token}&email={user.email}",
-            "noreply@jobboard.com",
-            [user.email],
-            fail_silently=False,
+        send_verification_email.delay(
+            user.id, user.email, user.email_verification_token
         )
 
         refresh = RefreshToken.for_user(user)
@@ -58,10 +51,69 @@ class RegisterView(generics.CreateAPIView):
                 "user": UserSerializer(user).data,
                 "refresh": str(refresh),
                 "access": str(refresh.access_token),
-                "message": "Please verify your email",
+                "message": "Verification email sent. Please verify your email to login.",
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class VerifyEmailView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        token = request.data.get("token")
+        email = request.data.get("email")
+
+        try:
+            user = User.objects.get(email=email, email_verification_token=token)
+
+            if user.email_verification_sent_at:
+                expiry_time = user.email_verification_sent_at + timedelta(hours=24)
+                if timezone.now() > expiry_time:
+                    return Response(
+                        {"error": "Verification link has expired. Request a new one."},
+                        status=400,
+                    )
+
+            user.is_email_verified = True
+            user.email_verification_token = None
+            user.save()
+
+            send_welcome_email.delay(user.id, user.email, user.username)
+
+            return Response(
+                {"message": "Email verified successfully. You can now login."},
+                status=200,
+            )
+
+        except User.DoesNotExist:
+            return Response({"error": "Invalid verification token"}, status=400)
+
+
+class ResendVerificationEmailView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        email = request.data.get("email")
+
+        try:
+            user = User.objects.get(email=email)
+
+            if user.is_email_verified:
+                return Response({"error": "Email already verified"}, status=400)
+
+            user.email_verification_token = generate_verification_token()
+            user.email_verification_sent_at = timezone.now()
+            user.save()
+
+            send_verification_email.delay(
+                user.id, user.email, user.email_verification_token
+            )
+
+            return Response({"message": "Verification email resent"}, status=200)
+
+        except User.DoesNotExist:
+            return Response({"error": "User not found"}, status=404)
 
 
 class LoginView(generics.GenericAPIView):
@@ -72,6 +124,14 @@ class LoginView(generics.GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data
+
+        # Check if email is verified
+        if not user.is_email_verified:
+            return Response(
+                {"error": "Please verify your email before logging in."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
         refresh = RefreshToken.for_user(user)
         return Response(
             {
@@ -91,8 +151,14 @@ class ProfileView(generics.RetrieveUpdateAPIView):
 
 
 class ProfileUpdateView(generics.RetrieveUpdateAPIView):
+    """
+    Supports both JSON and multipart/form-data so tests that send JSON
+    (the default in APIClient) don't get 415 Unsupported Media Type.
+    """
+
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_object(self):
         return self.request.user
@@ -128,23 +194,16 @@ class ForgotPasswordView(APIView):
             user = User.objects.get(email=email)
         except User.DoesNotExist:
             return Response(
-                {"error": "No user found with this email"},
-                status=status.HTTP_404_NOT_FOUND,
+                {"message": "If an account exists, a reset link has been sent."},
+                status=200,
             )
 
-        # Generate reset token
         token = get_random_string(64)
-        user.email_verification_token = token
+        user.reset_password_token = token
+        user.reset_password_sent_at = timezone.now()
         user.save()
 
-        # Send email
-        send_mail(
-            "Password Reset Request",
-            f"Your password reset token: {token}\n\nUse this token to reset your password.",
-            "noreply@jobboard.com",
-            [user.email],
-            fail_silently=False,
-        )
+        send_password_reset_email.delay(user.id, user.email, token)
 
         return Response(
             {"message": "Password reset link sent to your email"},
@@ -152,44 +211,31 @@ class ForgotPasswordView(APIView):
         )
 
 
-class ResetPasswordView(generics.GenericAPIView):
-    permission_classes = [permissions.AllowAny]
-    serializer_class = ResetPasswordSerializer
-
-    def post(self, request):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        token = serializer.validated_data["token"]
-        new_password = serializer.validated_data["new_password"]
-
-        for user in User.objects.all():
-            if request.session.get(f"reset_token_{user.id}") == token:
-                user.set_password(new_password)
-                user.save()
-                del request.session[f"reset_token_{user.id}"]
-                return Response({"message": "Password reset successful"}, status=200)
-
-        return Response({"error": "Invalid token"}, status=400)
-
-
-class VerifyEmailView(APIView):
+class ResetPasswordView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
         token = request.data.get("token")
         email = request.data.get("email")
+        new_password = request.data.get("new_password")
 
         try:
-            user = User.objects.get(email=email)
-            if user.email_verification_token == token:
-                user.is_email_verified = True
-                user.email_verification_token = None
-                user.save()
-                return Response({"message": "Email verified successfully"}, status=200)
-        except User.DoesNotExist:
-            pass
+            user = User.objects.get(email=email, reset_password_token=token)
 
-        return Response({"error": "Invalid verification token"}, status=400)
+            if user.reset_password_sent_at:
+                expiry_time = user.reset_password_sent_at + timedelta(hours=1)
+                if timezone.now() > expiry_time:
+                    return Response({"error": "Reset link has expired"}, status=400)
+
+            user.set_password(new_password)
+            user.reset_password_token = None
+            user.reset_password_sent_at = None
+            user.save()
+
+            return Response({"message": "Password reset successful"}, status=200)
+
+        except User.DoesNotExist:
+            return Response({"error": "Invalid reset token"}, status=400)
 
 
 class AdminBlockUserView(APIView):
@@ -212,12 +258,3 @@ class AdminBlockUserView(APIView):
             return Response({"message": f"User {user.username} unblocked"}, status=200)
         except User.DoesNotExist:
             return Response({"error": "User not found"}, status=404)
-
-
-class ProfileUpdateView(generics.RetrieveUpdateAPIView):
-    serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]  # ← For file upload
-
-    def get_object(self):
-        return self.request.user

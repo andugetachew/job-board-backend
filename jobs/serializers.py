@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Job, Application, SavedJob, JobAlert
+from .models import Job, Application, SavedJob, JobAlert, StatusHistory
 
 
 class JobSerializer(serializers.ModelSerializer):
@@ -55,3 +55,13 @@ class JobAlertSerializer(serializers.ModelSerializer):
         model = JobAlert
         fields = "__all__"
         read_only_fields = ("candidate", "created_at", "last_sent_at")
+
+
+class StatusHistorySerializer(serializers.ModelSerializer):
+    changed_by_name = serializers.CharField(
+        source="changed_by.username", read_only=True
+    )
+
+    class Meta:
+        model = StatusHistory
+        fields = ["id", "status", "changed_by_name", "changed_at", "notes"]
