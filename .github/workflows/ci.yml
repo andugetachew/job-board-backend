@@ -38,7 +38,11 @@ jobs:
     env:
       SECRET_KEY: test-secret-key-not-for-production
       DEBUG: "True"
-      DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/test_db
+      DB_NAME: test_db
+      DB_USER: test_user
+      DB_PASSWORD: test_pass
+      DB_HOST: localhost
+      DB_PORT: 5432
       REDIS_URL: redis://localhost:6379/0
 
     steps:
