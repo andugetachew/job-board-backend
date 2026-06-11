@@ -14,6 +14,14 @@ markdown
 ![WebSockets](https://img.shields.io/badge/WebSockets-enabled-blue)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
+## 🌐 Live Demo
+
+| | URL |
+|--|--|
+| **API Base** | https://job-board-backend-1xpd.onrender.com |
+| **Swagger Docs** | https://job-board-backend-1xpd.onrender.com/api/docs/ |
+| **ReDoc** | https://job-board-backend-1xpd.onrender.com/api/redoc/ |
+| **Health Check** | https://job-board-backend-1xpd.onrender.com/health/ |
 
 ## 📊 Quality Metrics
 
