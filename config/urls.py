@@ -17,18 +17,20 @@ from drf_spectacular.views import (
 )
 from backup.views import BackupDatabaseView, BackupMediaView
 from jobs.analytics import EmployerAnalyticsView, CandidateAnalyticsView
+from django.http import JsonResponse
 from django.views.generic import RedirectView
+
+def health_check(request):
+    return JsonResponse({"status": "ok"})
 urlpatterns = [
 
-    path("", RedirectView.as_view(url="/api/docs/"), name="root"),  
-    # Admin
+    path("", RedirectView.as_view(url="/api/docs/"), name="root"), 
+    path("health/", health_check, name="health"), 
+    
     path("admin/", admin.site.urls),
-    # API Routes
     path("api/auth/", include("accounts.urls")),
     path("api/jobs/", include("jobs.urls")),
-    # Direct test endpoint
     path("api/my-apps/", MyApplicationsView.as_view(), name="direct-apps"),
-    # Admin API endpoints (keep consistent with /api/ prefix)
     path("api/admin/stats/", AdminStatsView.as_view(), name="admin-stats"),
     path(
         "api/admin/recent-jobs/",
