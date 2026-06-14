@@ -17,7 +17,17 @@ from drf_spectacular.views import (
 )
 from backup.views import BackupDatabaseView, BackupMediaView
 from jobs.analytics import EmployerAnalyticsView, CandidateAnalyticsView
+from django.http import JsonResponse
+
+def api_root(request):
+    return JsonResponse({
+        "message": "Welcome to Job Board API",
+        "documentation": "https://job-board-backend-1xpd.onrender.com/api/docs/",
+        "version": "1.0.0",
+        "status": "online"
+    })
 urlpatterns = [
+    path("", api_root, name="api-root"),  
     # Admin
     path("admin/", admin.site.urls),
     # API Routes
