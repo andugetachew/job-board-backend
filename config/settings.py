@@ -66,10 +66,12 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": f"{REDIS_URL}/1",
+        "LOCATION": f"{REDIS_URL}/0",
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         },
+        "KEY_PREFIX": "jobboard",  
+        "TIMEOUT": 300,  
     }
 }
 
@@ -232,6 +234,7 @@ CELERY_TASK_ALWAYS_EAGER = False
 CELERY_TASK_EAGER_PROPAGATES = False
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_TASK_ALWAYS_EAGER = not DEBUG
+CELERY_TASK_DEFAULT_QUEUE = "jobboard_queue"
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = os.getenv("EMAIL_HOST")
