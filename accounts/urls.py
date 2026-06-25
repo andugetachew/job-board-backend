@@ -9,6 +9,7 @@ from .views import (
     ResetPasswordView,
     VerifyEmailView,
     ResendVerificationEmailView,
+    AdminBlockUserView,
 )
 
 urlpatterns = [
@@ -24,5 +25,10 @@ urlpatterns = [
         "resend-verification/",
         ResendVerificationEmailView.as_view(),
         name="resend-verification",
+    ),
+    path(
+        "admin/users/<int:user_id>/block/",
+        AdminBlockUserView.as_view(),
+        name="admin-block-user",
     ),
 ]

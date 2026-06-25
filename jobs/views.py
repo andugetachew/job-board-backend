@@ -21,7 +21,7 @@ from .filters import JobFilter
 from .tasks import send_application_confirmation, send_status_update_email
 from .resume_parser import parse_resume
 from config.cache import cache_response, invalidate_job_cache
-from config.permissions import IsEmployerOrReadOnly, IsEmployer, IsCandidate, IsAdmin
+from config.permissions import IsEmployerOrReadOnly, IsEmployer, IsCandidate, IsAdmin, IsJobOwnerOrAdmin
 from config.pagination import StandardPagination
 from config.throttling import ApplyThrottle
 
@@ -58,7 +58,7 @@ class JobDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     queryset = Job.objects.filter(is_active=True, is_deleted=False)
     serializer_class = JobSerializer
-    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsEmployerOrReadOnly)
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsJobOwnerOrAdmin)
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -78,7 +78,11 @@ class JobDetailView(generics.RetrieveUpdateDestroyAPIView):
         return Response(serializer_data)
 
     def perform_update(self, serializer):
-        if self.get_object().employer != self.request.user:
+        user = self.request.user
+        is_admin = (
+            user.is_superuser or user.is_staff or getattr(user, "role", "") == "admin"
+        )
+        if not is_admin and self.get_object().employer != user:
             raise PermissionDenied("You can only edit your own jobs")
         serializer.save()
         invalidate_job_cache()
@@ -128,8 +132,8 @@ class ApplyToJobView(APIView):
                 except Exception as e:
                     print(f"Resume parsing error: {e}")
 
-            # Call the task (already patched in tests via conftest autouse fixture)
-            send_application_confirmation(application.id)
+            # Dispatched asynchronously via Celery so SMTP latency never blocks this response
+            send_application_confirmation.delay(application.id)
 
             invalidate_job_cache()
 
@@ -196,8 +200,8 @@ class UpdateApplicationStatusView(generics.UpdateAPIView):
                 notes=self.request.data.get("notes", ""),
             )
 
-            # Call the task (patched in tests via conftest autouse fixture)
-            send_status_update_email(
+            # Dispatched asynchronously via Celery so SMTP latency never blocks this response
+            send_status_update_email.delay(
                 application.id, old_status, updated_application.status
             )
 
@@ -243,7 +247,9 @@ class JobAlertListCreateView(generics.ListCreateAPIView):
     pagination_class = StandardPagination
 
     def get_queryset(self):
-        return JobAlert.objects.filter(candidate=self.request.user)
+        return JobAlert.objects.filter(candidate=self.request.user).order_by(
+            "-created_at"
+        )
 
     def perform_create(self, serializer):
         serializer.save(candidate=self.request.user)
