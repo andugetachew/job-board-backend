@@ -4,7 +4,7 @@ markdown
 # Job Board Backend API
 
 ![Coverage](https://img.shields.io/badge/coverage-87%25-brightgreen)
-![Tests](https://img.shields.io/badge/tests-86%25%20passed-brightgreen)
+![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![Django](https://img.shields.io/badge/django-5.2-blue)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue)

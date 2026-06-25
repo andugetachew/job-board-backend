@@ -50,7 +50,7 @@ services:
     ports:
       - "8001:8000"
     environment:
-      DEBUG: "False"
+      DEBUG: ${DEBUG}
       DB_NAME: jobboard_db
       DB_USER: postgres
       DB_PASSWORD: postgres
