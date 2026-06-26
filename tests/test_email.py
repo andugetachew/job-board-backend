@@ -1,3 +1,4 @@
+
 import pytest
 from unittest.mock import patch
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -42,7 +43,7 @@ class TestEmailNotifications:
                 format="multipart",
             )
             assert response.status_code == 201
-            mock_task.assert_called_once()
+            mock_task.delay.assert_called_once()
 
     @pytest.mark.django_db
     def test_email_task_triggered_on_status_update(
@@ -55,7 +56,7 @@ class TestEmailNotifications:
                 format="json",
             )
             assert response.status_code == 200
-            mock_task.assert_called_once()
+            mock_task.delay.assert_called_once()
 
     @pytest.mark.django_db
     def test_email_not_sent_on_failed_application(self, auth_client, test_job):
@@ -67,4 +68,4 @@ class TestEmailNotifications:
                 format="multipart",
             )
             assert response.status_code in [400, 422]
-            mock_task.assert_not_called()
+            mock_task.delay.assert_not_called()
