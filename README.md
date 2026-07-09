@@ -1,5 +1,3 @@
-Here's the complete rewritten README for the Job Board Backend:
-markdown
 
 # Job Board Backend API
 
@@ -13,7 +11,7 @@ markdown
 ![Docker](https://img.shields.io/badge/Docker-enabled-blue)
 ![WebSockets](https://img.shields.io/badge/WebSockets-enabled-blue)
 ![License](https://img.shields.io/badge/license-MIT-blue)
-
+[![CI](https://github.com/andugetachew/job-board-backend/actions/workflows/ci.yml/badge.svg)](https://github.com/andugetachew/job-board-backend/actions)
 ## 🌐 Live Demo
 
 | | URL |
@@ -22,6 +20,14 @@ markdown
 | **Swagger Docs** | https://job-board-backend-1xpd.onrender.com/api/docs/ |
 | **ReDoc** | https://job-board-backend-1xpd.onrender.com/api/redoc/ |
 | **Health Check** | https://job-board-backend-1xpd.onrender.com/health/ |
+
+### Local Development
+
+- API: http://localhost:8001
+- Swagger Docs: http://localhost:8001/api/docs/
+- ReDoc: http://localhost:8001/api/redoc/
+- Health: http://localhost:8001/health/
+
 
 ## 📊 Quality Metrics
 
@@ -51,26 +57,27 @@ markdown
 > A production-ready job board REST API — employers post and manage job listings, candidates apply and track application status in real time, admins oversee the platform. Built with Django REST Framework, PostgreSQL, Redis, Celery, Django Channels (WebSockets), and Docker.
 
 ## ⚡ Why This Project?
+| Challenge | Solution |
+|------------|----------|
+| Duplicate job applications | unique_together(job, candidate) |
+| Slow job listings | Redis caching with automatic invalidation |
+| Resume processing | Celery background parsing |
+| Real-time updates | Django Channels WebSockets |
+| Data recovery | Soft delete |
+| Employer analytics | Optimized aggregate queries |
 
-- `unique_together` on job + candidate — prevents duplicate applications
-- `cache_for_jobs` decorator + `delete_pattern` — Redis cache with automatic invalidation
-- Celery resume parser — extracts skills, email, phone in background
-- Django Channels — WebSocket notifications per user in real time
-- `is_deleted` flag — soft delete jobs, restore without data loss
-- Aggregated analytics views — scoped per employer/candidate, no heavy joins
+### 🚀 Features
 
-
-## ≡ Key Highlights
-
-- JWT authentication with access/refresh tokens, email verification, and password reset
-- Role-based access control ΓÇö Candidate, Employer, Admin
-- Job listings with search, filtering, soft delete, and Redis caching
-- Application system with resume upload, status tracking, and duplicate prevention
-- Employer analytics: total jobs, active jobs, applications, views, top jobs
-- Candidate analytics: total applications, saved jobs, active alerts
-- Real-time WebSocket notifications via Django Channels
-- Background email and notification processing via Celery
-- 86% code coverage across unit, integration, permission, and analytics tests
+- JWT authentication with email verification
+- Candidate, employer and admin roles
+- Job posting and application workflow
+- Resume upload and background parsing
+- Employer and candidate analytics
+- Redis caching and rate limiting
+- Celery background processing
+- Real-time notifications via WebSockets
+- Dockerized deployment
+- 89% code coverage with automated tests
 
 ---
 ## 🛠 Tech Stack
@@ -91,14 +98,19 @@ markdown
 
 ## 🏗 System Architecture
 
+```text
 Client (Web / Mobile)
-↓
-Django REST API (Daphne ASGI)
-↓
-PostgreSQL 16        Redis 7
-(Primary DB)    (Cache + Celery Broker)
-↓
+        │
+        ▼
+Django REST API (Daphne)
+        │
+        ├── PostgreSQL
+        ├── Redis
+        │     ├── Cache
+        │     └── Celery Broker
+        ▼
 Celery Workers
+```
 
 
 ---
@@ -121,68 +133,20 @@ job-board-backend/
 
 
 ---
-
 ## 📡 API Endpoints
+/api/v1/
 
-### Authentication — `/api/auth/`
-
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| POST | `register/` | Register + send verification email | Public |
-| POST | `login/` | Login, receive JWT tokens | Public |
-| POST | `token/refresh/` | Refresh access token | Public |
-| GET/PATCH | `profile/` | View and update profile | JWT |
-| POST | `verify-email/` | Verify email token | Public |
-| POST | `resend-verification/` | Resend verification email | Public |
-| POST | `password-reset/` | Request password reset link | Public |
-| POST | `password-reset/confirm/` | Confirm and set new password | Public |
-| POST | `update-password/` | Change password | JWT |
-| DELETE | `delete-account/` | Soft delete account | JWT |
-
-### Jobs — `/api/jobs/`
-
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET | `/` | List jobs (cached, filterable, searchable) | Public |
-| POST | `/` | Create job listing | Employer |
-| GET | `<id>/` | Job detail | Public |
-| PUT/PATCH | `<id>/` | Update own job | Employer |
-| DELETE | `<id>/` | Soft delete own job | Employer |
-| POST | `<job_id>/apply/` | Apply to a job | Candidate |
-| GET | `applications/my/` | List own applications | Candidate |
-| GET | `applications/employer/` | List applications for employer's jobs | Employer |
-| PATCH | `applications/<id>/status/` | Update application status | Employer |
-| POST | `applications/<id>/withdraw/` | Withdraw application | Candidate |
-| POST | `applications/<id>/update-resume/` | Update resume on application | Candidate |
-
-### Saved Jobs & Alerts — `/api/jobs/`
-
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET/POST | `saved/` | List or save a job | Candidate |
-| DELETE | `saved/<id>/` | Unsave a job | Candidate |
-| GET/POST | `alerts/` | List or create job alerts | Candidate |
-| DELETE | `alerts/<id>/` | Delete a job alert | Candidate |
-
-### Analytics — `/api/analytics/`
-
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET | `employer/` | Total jobs, views, applications, top jobs | Employer |
-| GET | `candidate/` | Total applications, saved jobs, active alerts | Candidate |
-
-### Reviews — `/api/`
-
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET/POST | `reviews/` | List or create company reviews | JWT |
-| GET/PATCH/DELETE | `reviews/<id>/` | Review detail | JWT (owner) |
-
-### WebSockets
-
-| Type | URL | Description | Auth |
-|------|-----|-------------|------|
-| WS | `ws://.../ws/notifications/` | Real-time job notifications | JWT |
+auth/
+users/
+companies/
+jobs/
+applications/
+resumes/
+saved-jobs/
+alerts/
+notifications/
+analytics/
+reviews/
 
 ---
 
@@ -282,39 +246,8 @@ docker-compose exec backend pytest --cov=. --cov-report=term-missing
 docker-compose exec backend pytest tests/test_analytics.py -v
 ```
 
-### ✅ Test Results: 86% coverage
+### ✅ Test Results: 89% coverage
 
-| Module | Coverage |
-|--------|----------|
-| `accounts/tasks.py` | 100% |
-| `jobs/analytics.py` | 100% |
-| `jobs/decorators.py` | 100% |
-| `jobs/serializers.py` | 98% |
-| `accounts/models.py` | 95% |
-| `tests/conftest.py` | 95% |
-| `jobs/notifications_utils.py` | 89% |
-| `jobs/tasks.py` | 90% |
-| `jobs/models.py` | 86% |
-| `reviews/views.py` | 100% |
-
-### Test Breakdown
-
-| Category | Tests |
-|----------|-------|
-| Authentication & accounts | ✅ `test_auth.py` |
-| Job listings & CRUD | ✅ `test_jobs.py` |
-| Applications | ✅ `test_applications.py` |
-| Analytics (employer + candidate) | ✅ `test_analytics.py` |
-| Permissions & roles | ✅ `test_permissions.py` |
-| Cache decorators | ✅ `test_decorators.py` |
-| Email tasks | ✅ `test_email.py` |
-| Notifications utils | ✅ `test_jobs_notifications_utils.py` |
-| Celery tasks | ✅ `test_accounts_tasks.py` |
-| Integration flows | ✅ `test_integrations.py` |
-| Security | ✅ `test_security.py` |
-| Reviews | ✅ `test_reviews.py` |
-
----
 
 ## 🎯 Design Decisions
 
