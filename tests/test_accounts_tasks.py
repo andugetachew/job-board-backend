@@ -10,7 +10,7 @@ from accounts.tasks import (
     clean_expired_tokens,
 )
 
-
+from accounts.utils import generate_verification_token
 @pytest.mark.django_db
 class TestAccountTasks:
 
@@ -129,3 +129,12 @@ class TestAccountTasks:
         subject = mock_send_mail.call_args[0][0]
 
         assert "Verify" in subject
+
+class TestGenerateVerificationToken:
+    def test_returns_string(self):
+        token = generate_verification_token()
+        assert isinstance(token, str)
+        assert len(token) > 20
+
+    def test_is_unique(self):
+        assert generate_verification_token() != generate_verification_token()

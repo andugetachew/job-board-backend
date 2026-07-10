@@ -147,3 +147,21 @@ def send_application_reminders():
         )
 
     return {"reminders_sent": pending_apps.count()}
+@shared_task
+def parse_resume_task(application_id):
+    from .models import Application
+    from .resume_parser import parse_resume
+
+    try:
+        app = Application.objects.get(id=application_id)
+        if app.resume:
+            app.resume.open()
+            resume_data = parse_resume(app.resume)
+            app.resume.close()
+
+            app.parsed_email = resume_data.get("email")
+            app.parsed_phone = resume_data.get("phone")
+            app.extracted_skills = resume_data.get("skills", [])
+            app.save()
+    except Exception as e:
+        print(f"Resume parsing error: {e}")

@@ -124,3 +124,16 @@ class TestWithdrawApplicationView:
     def test_withdraw_nonexistent_application_returns_404(self, auth_client):
         response = auth_client.delete("/api/jobs/applications/99999/withdraw/")
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+from django.test import override_settings
+
+
+class TestCustomErrorHandlers:
+    """Covers config/views.py custom error handlers"""
+
+    @pytest.mark.django_db
+    @override_settings(DEBUG=False)
+    def test_404_returns_custom_json(self, api_client):
+        response = api_client.get("/api/this-does-not-exist/")
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.json() == {"error": "Resource not found"}

@@ -90,11 +90,11 @@ CHANNEL_LAYERS = {
 DATABASES = {
     "default": dj_database_url.config(
         default="postgres://{}:{}@{}:{}/{}".format(
-            os.environ.get("DB_USER", "postgres"),
-            os.environ.get("DB_PASSWORD", "postgres"),
-            os.environ.get("DB_HOST", "localhost"),
-            os.environ.get("DB_PORT", "5432"),
-            os.environ.get("DB_NAME", "test_db"),
+            config("DB_USER", default="postgres"),
+            config("DB_PASSWORD", default="postgres"),
+            config("DB_HOST", default="localhost"),
+            config("DB_PORT", default="5432"),
+            config("DB_NAME", default="test_db"),
         ),
         conn_max_age=600,
         ssl_require=not DEBUG,

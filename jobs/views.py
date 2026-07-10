@@ -18,8 +18,7 @@ from .serializers import (
     StatusHistorySerializer,
 )
 from .filters import JobFilter
-from .tasks import send_application_confirmation, send_status_update_email
-from .resume_parser import parse_resume
+from .tasks import send_application_confirmation, send_status_update_email, parse_resume_task
 from config.cache import cache_response, invalidate_job_cache
 from config.permissions import IsEmployerOrReadOnly, IsEmployer, IsCandidate, IsAdmin, IsJobOwnerOrAdmin
 from config.pagination import StandardPagination
@@ -120,17 +119,7 @@ class ApplyToJobView(APIView):
             application = serializer.save(job=job, candidate=request.user)
 
             if application.resume:
-                try:
-                    application.resume.open()
-                    resume_data = parse_resume(application.resume)
-                    application.resume.close()
-
-                    application.parsed_email = resume_data.get("email")
-                    application.parsed_phone = resume_data.get("phone")
-                    application.extracted_skills = resume_data.get("skills", [])
-                    application.save()
-                except Exception as e:
-                    print(f"Resume parsing error: {e}")
+                parse_resume_task.delay(application.id)
 
             # Dispatched asynchronously via Celery so SMTP latency never blocks this response
             send_application_confirmation.delay(application.id)

@@ -63,6 +63,11 @@ urlpatterns = [
     path("api/analytics/candidate/", CandidateAnalyticsView.as_view(), name="candidate-analytics"),
 ]
 
+handler404 = "config.views.handler404"
+handler500 = "config.views.handler500"
+handler403 = "config.views.handler403"
+handler400 = "config.views.handler400"
+
 # Serve media files in development
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
